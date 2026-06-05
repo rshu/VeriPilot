@@ -46,17 +46,3 @@ test("noProgress is false when the failing set changes", () => {
   l.record("M1", gate("M1", false, ["9.1.1"]))
   assert.equal(l.noProgress("M1"), false)
 })
-
-test("recordRoute appends route observations to an entry created without routes and persists", () => {
-  const file = path.join(mkdtempSync(path.join(tmpdir(), "vp-")), "state.json")
-  const l = new Ledger(file)
-  l.record("M1", gate("M1", false, ["9.1.1"])) // entry now exists with no `routes`
-  l.recordRoute("M1", { target: "KitA", flagged: true })
-  l.recordRoute("M1", { target: "KitB", flagged: false, note: "ok" })
-  const reloaded = new Ledger(file)
-  const routes = reloaded.routes("M1")
-  assert.equal(routes.length, 2)
-  assert.equal(routes[0]!.target, "KitA")
-  assert.equal(routes[0]!.flagged, true)
-  assert.equal(routes[0]!.milestone, "M1")
-})

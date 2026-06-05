@@ -50,27 +50,10 @@ export interface Attempt {
 
 export type MilestoneStatus = "pending" | "in_progress" | "passed" | "escalated"
 
-/**
- * An observation that, while working a milestone, the coding agent selected
- * `target` (a Kit / capability). `flagged` is set by an EXTERNAL classifier
- * (e.g. VeriKit's self-collision check) when the target's authored selection
- * metadata is known-defective. VeriPilot stores these for the cross-layer
- * analysis only; the gap-closing loop never reads them, so it stays
- * target-agnostic. The join (see cross-layer.ts) correlates flagged routes
- * (authoring-time defect) with gate trouble (build-time false-done).
- */
-export interface RouteObservation {
-  milestone: MilestoneId
-  target: string
-  flagged: boolean
-  note?: string
-}
-
 export interface LedgerEntry {
   id: MilestoneId
   status: MilestoneStatus
   attempts: Attempt[]
-  routes?: RouteObservation[] // optional: present once any route is recorded
 }
 
 export interface LedgerState {

@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs"
 import path from "node:path"
-import type { GateResult, LedgerEntry, LedgerState, MilestoneId, MilestoneStatus, RouteObservation } from "./types.ts"
+import type { GateResult, LedgerEntry, LedgerState, MilestoneId, MilestoneStatus } from "./types.ts"
 
 export class Ledger {
   private state: LedgerState
@@ -24,20 +24,6 @@ export class Ledger {
   escalate(id: MilestoneId): void {
     this.entry(id).status = "escalated"
     this.flush()
-  }
-
-  /** Record that the agent routed to `target` while working this milestone.
-   *  `flagged` comes from an external classifier (e.g. VeriKit). Observability
-   *  only — the gap-closing loop never reads routes; they feed the cross-layer
-   *  join. Resume-safe: an entry loaded without `routes` gets one lazily. */
-  recordRoute(id: MilestoneId, route: { target: string; flagged: boolean; note?: string }): void {
-    const e = this.entry(id)
-    ;(e.routes ??= []).push({ milestone: id, ...route })
-    this.flush()
-  }
-
-  routes(id: MilestoneId): RouteObservation[] {
-    return this.entry(id).routes ?? []
   }
 
   status(id: MilestoneId): MilestoneStatus {
