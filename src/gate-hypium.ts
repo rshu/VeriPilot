@@ -55,20 +55,43 @@ export type DeviceTestRunner = (milestone: Milestone) => Promise<{ code: number;
  * Tier-B gate: runs on-device hypium tests and maps each Tier-B acceptance item
  * to the `it` of the same id (convention: name the test after the acceptance id,
  * e.g. `it("9.1.1", ...)`). Non-Tier-B items are left as fail/"not run"; a
- * {@link TieredGate} overrides them with the owning tier's result.
+ * {@link TieredGate} overrides them with the owning tier's result. Fails closed:
+ * the runner exit code, OHOS_REPORT_CODE, and the report summary are enforced so
+ * a crashed/errored device run can never be a silent PASS.
  */
 export class HypiumGate implements Gate {
   constructor(private runner: DeviceTestRunner) {}
   async run(milestone: Milestone): Promise<GateResult> {
     const res = await this.runner(milestone)
     const report = parseOhosReport(res.output)
+    const runnerFailed = res.code !== 0
+    const tail = () => res.output.split("\n").slice(-8).join("\n").trim()
     const items: GateItem[] = milestone.acceptance.map((a) => {
       if (a.tier !== "B") return { id: a.id, result: "fail", evidence: `Tier ${a.tier} not run by HypiumGate` }
       const outcome = report.tests[a.id]
-      if (outcome === undefined) return { id: a.id, result: "fail", evidence: `no device test '${a.id}' in OHOS_REPORT` }
+      if (outcome === undefined) {
+        // No result for this id. If the runner itself failed (bad install /
+        // device error), surface that rather than a misleading "missing test".
+        return runnerFailed
+          ? { id: a.id, result: "fail", evidence: `device run failed (exit ${res.code}): ${tail()}` }
+          : { id: a.id, result: "fail", evidence: `no device test '${a.id}' in OHOS_REPORT` }
+      }
       return { id: a.id, result: outcome, evidence: outcome === "pass" ? "" : `device test '${a.id}' failed` }
     })
     const failures = items.filter((i) => i.result === "fail")
+    // Harness-level guard: a crashed/errored run whose per-acceptance tests all
+    // happened to report pass must NOT pass the milestone. Fail closed on a
+    // non-zero runner exit, a missing/non-zero OHOS_REPORT_CODE, or any errored/
+    // failed test in the summary — mirroring HvigorGate's exit-code gating.
+    const harnessBad =
+      runnerFailed ||
+      report.ok === false ||
+      (report.summary !== null && (report.summary.error > 0 || report.summary.failure > 0))
+    if (failures.length === 0 && harnessBad) {
+      const synthetic: GateItem = { id: `${milestone.id}:device-run`, result: "fail", evidence: `device test run reported failure: ${tail()}` }
+      items.push(synthetic)
+      failures.push(synthetic)
+    }
     return { milestone: milestone.id, passed: failures.length === 0, items, failures }
   }
 }
@@ -99,8 +122,10 @@ export function hdcDeviceTestRunner(cfg: HdcTestConfig): DeviceTestRunner {
       })
     })
   return async () => {
-    await sh(["install", "-r", cfg.appHap])
-    await sh(["install", "-r", cfg.testHap])
+    const appInstall = await sh(["install", "-r", cfg.appHap])
+    if (appInstall.code !== 0) return { code: appInstall.code, output: `HDC_INSTALL_FAILED (app): ${appInstall.output}` }
+    const testInstall = await sh(["install", "-r", cfg.testHap])
+    if (testInstall.code !== 0) return { code: testInstall.code, output: `HDC_INSTALL_FAILED (test): ${testInstall.output}` }
     return sh([
       "shell", "aa", "test",
       "-b", cfg.bundle,

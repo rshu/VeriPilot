@@ -34,3 +34,23 @@ test("ScreenshotJudgeGate does not capture when there are no Tier-C items", asyn
   await gate.run(m([{ id: "9.2.0", text: "builds", tier: "A" }]))
   assert.equal(shots, 0)
 })
+
+test("ScreenshotJudgeGate turns a capture failure into Tier-C fails, not a throw", async () => {
+  const shoot: Screenshotter = async () => {
+    throw new Error("hdc snapshot died")
+  }
+  const judge: VisualJudge = async () => ({ pass: true, reason: "" })
+  const r = await new ScreenshotJudgeGate(shoot, judge).run(m([{ id: "9.2.1", text: "x", tier: "C" }]))
+  assert.equal(r.passed, false)
+  assert.match(r.items[0]!.evidence, /screenshot capture failed.*hdc snapshot died/)
+})
+
+test("ScreenshotJudgeGate turns a judge error into a Tier-C fail, not a throw", async () => {
+  const shoot: Screenshotter = async () => ({ imagePath: "/tmp/x.jpeg" })
+  const judge: VisualJudge = async () => {
+    throw new Error("judge exploded")
+  }
+  const r = await new ScreenshotJudgeGate(shoot, judge).run(m([{ id: "9.2.1", text: "x", tier: "C" }]))
+  assert.equal(r.passed, false)
+  assert.match(r.items[0]!.evidence, /visual judge failed.*judge exploded/)
+})

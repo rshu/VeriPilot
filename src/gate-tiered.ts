@@ -20,7 +20,8 @@ export class TieredGate implements Gate {
     const byTier: Record<"A" | "B" | "C", Record<string, GateItem>> = { A: index(a), B: index(b), C: index(c) }
     const items: GateItem[] = milestone.acceptance.map((it) => {
       if (it.tier === "graceful") return { id: it.id, result: "graceful" as ItemResult, evidence: "" }
-      const sub = byTier[it.tier][it.id]
+      const bucket = byTier[it.tier as "A" | "B" | "C"]
+      const sub = bucket && bucket[it.id]
       if (!sub) return { id: it.id, result: "fail", evidence: `no gate for Tier ${it.tier}` }
       return sub
     })

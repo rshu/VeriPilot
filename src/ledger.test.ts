@@ -46,3 +46,19 @@ test("noProgress is false when the failing set changes", () => {
   l.record("M1", gate("M1", false, ["9.1.1"]))
   assert.equal(l.noProgress("M1"), false)
 })
+
+test("noProgress holds across a reload (resume does not grant a fresh retry budget)", () => {
+  const file = path.join(mkdtempSync(path.join(tmpdir(), "vp-")), "state.json")
+  new Ledger(file).record("M1", gate("M1", false, ["9.1.1"]))
+  const resumed = new Ledger(file) // resume from disk
+  resumed.record("M1", gate("M1", false, ["9.1.1"])) // identical failing set again
+  assert.equal(resumed.noProgress("M1"), true)
+})
+
+test("escalated status persists across a reload", () => {
+  const file = path.join(mkdtempSync(path.join(tmpdir(), "vp-")), "state.json")
+  const l = new Ledger(file)
+  l.record("M1", gate("M1", false, ["9.1.1"]))
+  l.escalate("M1")
+  assert.equal(new Ledger(file).status("M1"), "escalated")
+})

@@ -50,3 +50,13 @@ test("reads an arbitrary caller-provided milestones file (generic, not bundled)"
 test("loadMilestones throws on a milestone with no acceptance items", () => {
   assert.throws(() => loadMilestones({ milestones: [{ id: "X", title: "x", requirement: "x", slices: [], deps: [], acceptance: [] }] as never }))
 })
+
+test("loadMilestones throws on an acceptance item with an unknown tier", () => {
+  assert.throws(
+    () =>
+      loadMilestones({
+        milestones: [{ id: "X", title: "x", requirement: "x", slices: [], deps: [], acceptance: [{ id: "a", text: "w", tier: "Z" }] }],
+      } as never),
+    /unknown tier/,
+  )
+})

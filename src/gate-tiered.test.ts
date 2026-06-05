@@ -55,3 +55,14 @@ test("TieredGate fails a present tier that has no configured sub-gate", async ()
   assert.equal(b.result, "fail")
   assert.match(b.evidence, /no gate for Tier B/)
 })
+
+test("TieredGate turns an unknown tier into a fail item rather than throwing", async () => {
+  const bad = {
+    id: "MX", title: "x", requirement: "x", slices: [], deps: [],
+    acceptance: [{ id: "9.x.1", text: "?", tier: "Z" }],
+  } as unknown as Milestone
+  const gate = new TieredGate({ A: new HvigorGate("/tmp/app", async () => ({ code: 0, output: "ok" })) })
+  const r = await gate.run(bad)
+  assert.equal(r.passed, false)
+  assert.match(r.items[0]!.evidence, /no gate for Tier Z/)
+})

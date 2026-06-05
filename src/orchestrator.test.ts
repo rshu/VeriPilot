@@ -4,7 +4,7 @@ import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { runMilestone, runAll, type OrchestratorDeps } from "./orchestrator.ts"
-import { FakeGate } from "./gate.ts"
+import { FakeGate, type Gate } from "./gate.ts"
 import { FakeAgent } from "./agent.ts"
 import { TemplateJudge } from "./judge.ts"
 import { Ledger } from "./ledger.ts"
@@ -63,4 +63,24 @@ test("runAll resumes: an already-passed milestone is skipped (agent not re-dispa
   const before = agent.prompts.length
   await runAll([m("M1")], deps({ ledger, agent, gate: new FakeGate([{ "M1.a": "pass" }]) }))
   assert.equal(agent.prompts.length, before) // skipped on the second run
+})
+
+test("a throwing gate is recorded as a failed attempt and escalates, not a crash", async () => {
+  const throwingGate: Gate = {
+    run: async () => {
+      throw new Error("device offline")
+    },
+  }
+  const e = await runMilestone(m("M1"), deps({ gate: throwingGate, maxRetries: 2 }))
+  assert.equal(e.status, "escalated")
+  assert.equal(e.attempts.length, 2)
+  assert.match(e.attempts[0]!.gate.failures[0]!.evidence, /attempt threw.*device offline/)
+})
+
+test("runAll enforces deps: a milestone whose dep has not passed does not run", async () => {
+  const agent = new FakeAgent()
+  // array order puts M2 (deps M1) BEFORE M1; M2 must not run out of order
+  const state = await runAll([m("M2", ["M1"]), m("M1")], deps({ agent, gate: new FakeGate([{ "M1.a": "pass" }]) }))
+  assert.equal(state.milestones["M2"], undefined) // refused: dep M1 not passed
+  assert.equal(agent.prompts.length, 0) // nothing dispatched
 })

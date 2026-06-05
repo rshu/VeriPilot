@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert"
-import { buildClaudeArgs, ClaudeCodeAgent } from "./agent-claude.ts"
+import { buildClaudeArgs, ClaudeCodeAgent, claudeRunner } from "./agent-claude.ts"
 import type { AgentRunner } from "./agent-claude.ts"
 
 const after = (args: string[], flag: string) => args[args.indexOf(flag) + 1]
@@ -38,4 +38,12 @@ test("ClaudeCodeAgent throws with the output tail when the runner fails", async 
     () => new ClaudeCodeAgent({ cwd: "/app" }, runner).run("edit M1"),
     /claude agent failed \(exit 1\)[\s\S]*model overloaded/,
   )
+})
+
+test("claudeRunner maps a missing binary to exit 1 with a diagnosable message, and run() rejects", async () => {
+  const cfg = { cwd: process.cwd(), claude: "definitely-not-a-real-bin-xyz" }
+  const res = await claudeRunner(cfg)("x")
+  assert.equal(res.code, 1)
+  assert.ok(res.output.trim().length > 0) // err.message folded in -> non-empty
+  await assert.rejects(() => new ClaudeCodeAgent(cfg).run("x"), /claude agent failed \(exit 1\)/)
 })

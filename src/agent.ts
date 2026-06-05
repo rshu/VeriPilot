@@ -1,5 +1,6 @@
 /** Drives a coding agent that edits the app repo. The real implementation
- *  (follow-on plan) spawns headless Claude Code + the VeriKit plugin. */
+ *  (ClaudeCodeAgent) spawns headless Claude Code; the agent is the only thing
+ *  that writes code — gates judge the outcome. */
 export interface Agent {
   run(prompt: string): Promise<void>
 }

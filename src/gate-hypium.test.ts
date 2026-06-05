@@ -75,3 +75,31 @@ test("HypiumGate leaves non-Tier-B items as fail/'not run'", async () => {
   const r = await gate.run(m([{ id: "9.1.0", text: "builds", tier: "A" }]))
   assert.match(r.items[0]!.evidence, /Tier A not run by HypiumGate/)
 })
+
+// A run that crashed: the mapped test reported pass, but OHOS_REPORT_CODE and the
+// summary error count say the harness itself failed.
+const CRASH = `
+OHOS_REPORT_STATUS: test=9.2.1
+OHOS_REPORT_STATUS_CODE: 0
+OHOS_REPORT_RESULT: stream=Tests run: 1, Failure: 0, Error: 1, Pass: 1, Ignore: 0
+OHOS_REPORT_CODE: -1
+`
+
+test("parseOhosReport reports ok:false on a non-zero code and when the code line is absent", () => {
+  assert.equal(parseOhosReport(CRASH).ok, false)
+  assert.equal(parseOhosReport("OHOS_REPORT_STATUS: test=x\nOHOS_REPORT_STATUS_CODE: 0\n").ok, false)
+})
+
+test("HypiumGate fails closed when the harness errors even though the mapped test 'passed'", async () => {
+  const gate = new HypiumGate(async () => ({ code: 0, output: CRASH }))
+  const r = await gate.run(m([{ id: "9.2.1", text: "x", tier: "B" }]))
+  assert.equal(r.items.find((i) => i.id === "9.2.1")!.result, "pass") // per-test parse says pass...
+  assert.equal(r.passed, false) // ...but the harness error makes the milestone fail
+  assert.match(r.failures.at(-1)!.evidence, /reported failure/)
+})
+
+test("HypiumGate surfaces a runner/install failure instead of 'no device test'", async () => {
+  const gate = new HypiumGate(async () => ({ code: 1, output: "HDC_INSTALL_FAILED (app): boom" }))
+  const r = await gate.run(m([{ id: "9.1.1", text: "x", tier: "B" }]))
+  assert.match(r.failures[0]!.evidence, /device run failed \(exit 1\)/)
+})

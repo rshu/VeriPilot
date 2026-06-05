@@ -21,8 +21,27 @@ export class ScreenshotJudgeGate implements Gate {
     const cItems = milestone.acceptance.filter((a) => a.tier === "C")
     const verdicts: Record<string, { pass: boolean; reason: string }> = {}
     if (cItems.length > 0) {
-      const shot = await this.shoot(milestone)
-      for (const a of cItems) verdicts[a.id] = await this.judge(a, shot.imagePath)
+      // A capture or judge failure must NOT throw out of the gate (that would
+      // crash the orchestrator loop); it becomes a per-item Tier-C failure so
+      // the gap is recorded and the recovery/escalation path still runs.
+      let imagePath: string | null = null
+      let captureError = ""
+      try {
+        imagePath = (await this.shoot(milestone)).imagePath
+      } catch (e) {
+        captureError = `screenshot capture failed: ${errMsg(e)}`
+      }
+      for (const a of cItems) {
+        if (imagePath === null) {
+          verdicts[a.id] = { pass: false, reason: captureError }
+          continue
+        }
+        try {
+          verdicts[a.id] = await this.judge(a, imagePath)
+        } catch (e) {
+          verdicts[a.id] = { pass: false, reason: `visual judge failed: ${errMsg(e)}` }
+        }
+      }
     }
     const items: GateItem[] = milestone.acceptance.map((a) => {
       if (a.tier !== "C") return { id: a.id, result: "fail", evidence: `Tier ${a.tier} not run by ScreenshotJudgeGate` }
@@ -32,6 +51,10 @@ export class ScreenshotJudgeGate implements Gate {
     const failures = items.filter((i) => i.result === "fail")
     return { milestone: milestone.id, passed: failures.length === 0, items, failures }
   }
+}
+
+function errMsg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e)
 }
 
 /**
