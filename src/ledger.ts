@@ -34,7 +34,12 @@ export class Ledger {
     return this.entry(id).attempts
   }
 
-  /** True when the last two attempts failed on the identical set of items. */
+  /** True when the last two attempts failed on the identical set of items.
+   *  Note: this compares persisted attempts, so it also spans a resume — the
+   *  first attempt after a restart is compared against the last pre-restart
+   *  attempt. That is intentional (an identical repeated gap is still no
+   *  progress), so a resumed milestone does not get a fresh retry budget if it
+   *  reproduces the same failure. */
   noProgress(id: MilestoneId): boolean {
     const a = this.entry(id).attempts
     if (a.length < 2) return false

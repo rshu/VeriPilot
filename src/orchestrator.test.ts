@@ -16,10 +16,10 @@ const m = (id: string, deps: string[] = []): Milestone => ({
 })
 const tmpLedger = () => new Ledger(path.join(mkdtempSync(path.join(tmpdir(), "vp-")), "state.json"))
 const deps = (over: Partial<OrchestratorDeps>): OrchestratorDeps => ({
-  agent: new FakeAgent(), judge: new TemplateJudge(), ledger: tmpLedger(),
+  agent: new FakeAgent(), gate: new FakeGate([{}]), judge: new TemplateJudge(), ledger: tmpLedger(),
   maxRetries: 3, dispatch: (mm, fb) => (fb ? `${mm.requirement}\n${fb.text}` : mm.requirement),
   ...over,
-} as OrchestratorDeps)
+})
 
 test("passes on the first attempt when the gate passes", async () => {
   const agent = new FakeAgent()
