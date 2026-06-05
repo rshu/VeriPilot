@@ -22,8 +22,16 @@ lower-level concern (e.g. VeriKit).
   passed milestones (state persisted by `src/ledger.ts`).
 - **Pluggable interfaces** — `Gate` (what "goal met" means), `Agent` (drives the
   coding agent), `Judge` (turns gaps into feedback). In-memory fakes ship for
-  tests; a deterministic `TemplateJudge` and a Tier-A build gate (`HvigorGate`)
-  ship for real use.
+  tests. Real adapters ship too: `ClaudeCodeAgent` (headless `claude -p`),
+  tiered gates — `HvigorGate` (Tier-A build), `HypiumGate` (Tier-B on-device
+  tests via `hdc`/`aa test`), `ScreenshotJudgeGate` (Tier-C screenshot + judge),
+  composed by `TieredGate` (graceful items auto-pass) — and a deterministic
+  `TemplateJudge`.
+- **Dashboard** — an optional, read-only web UI that live-monitors a run. The
+  orchestrator emits lifecycle events to an optional `events` sink; the
+  dashboard server (`src/dashboard-server.ts`) broadcasts them over SSE to a
+  React app (`dashboard/`). Kit-agnostic: it shows milestones, tiers, the
+  gap-closing attempt timeline, and Tier-C screenshots — never Kit choices.
 
 ## Use
 
@@ -42,18 +50,33 @@ await runAll(milestones, {
 })
 ```
 
+## Dashboard
+
+```bash
+cd dashboard && npm install && npm run build   # build the React UI once
+bun examples/dashboard-demo.ts                 # server + a scripted run → http://localhost:4317
+```
+
+To wire it into a real run, start the server and pass its sink as `events`:
+
+```ts
+import { startDashboard } from "./src/dashboard-server.ts"
+const server = await startDashboard({ distDir: "./dashboard/dist" })
+await runAll(milestones, { agent, gate, judge, ledger, maxRetries: 3, dispatch, events: server.sink })
+```
+
 ## Develop
 
 ```bash
 bun test            # unit tests
 bun run typecheck   # tsc --noEmit
-bun examples/demo.ts  # runnable end-to-end demo (fake agent + demo gate)
+bun examples/demo.ts           # end-to-end demo (fake agent + demo gate)
+bun examples/dashboard-demo.ts # live dashboard demo (build dashboard/ first)
 ```
 
 ## Status
 
-This repo is the **core engine**: milestone model, resumable ledger, the
-gap-closing loop, the pluggable interfaces, a deterministic judge, and a Tier-A
-build gate. The real headless-Claude-Code agent driver, an LLM judge, and
-runtime acceptance gate tiers (UI/instrumented tests) are the follow-on layer
-that implements the same interfaces.
+Validated end-to-end on a live HarmonyOS emulator: the tiered gate (build +
+on-device hypium + screenshot) and the full gap-closing loop with a real
+headless Claude Code agent. A real LLM vision judge for Tier-C plugs into the
+`VisualJudge` interface; everything else is shipped.

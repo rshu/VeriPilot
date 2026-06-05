@@ -2,6 +2,7 @@ import type { Agent } from "./agent.ts"
 import type { Gate } from "./gate.ts"
 import type { Judge } from "./judge.ts"
 import type { Ledger } from "./ledger.ts"
+import { noopSink, type EventSink } from "./events.ts"
 import type { Feedback, GateItem, GateResult, LedgerEntry, LedgerState, Milestone } from "./types.ts"
 
 export interface OrchestratorDeps {
@@ -12,12 +13,20 @@ export interface OrchestratorDeps {
   maxRetries: number
   /** Build the prompt for the agent: the requirement, plus recovery feedback on a retry. */
   dispatch: (milestone: Milestone, feedback?: Feedback) => string
+  /** Optional monitor sink (dashboard). Defaults to a no-op, so the core is unaffected. */
+  events?: EventSink
 }
 
 /** Run the gap-closing loop for one milestone: monitor -> gaps -> feedback, until gaps = ∅. */
 export async function runMilestone(milestone: Milestone, d: OrchestratorDeps): Promise<LedgerEntry> {
+  const events = d.events ?? noopSink
+  events.emit({
+    type: "milestone:start", ts: Date.now(), id: milestone.id,
+    title: milestone.title, requirement: milestone.requirement, acceptance: milestone.acceptance,
+  })
   let feedback: Feedback | undefined
   for (let attempt = 1; attempt <= d.maxRetries; attempt++) {
+    events.emit({ type: "attempt:start", ts: Date.now(), id: milestone.id, attempt })
     // The agent and the gate do real I/O (subprocesses, devices) and can throw
     // or hang. An exception here must NOT abort the workflow with no ledger
     // trace — turn it into a recorded failed attempt so feedback + recovery +
@@ -30,17 +39,24 @@ export async function runMilestone(milestone: Milestone, d: OrchestratorDeps): P
       gate = errorGate(milestone, e)
     }
     d.ledger.record(milestone.id, gate, feedback?.text)
-    if (gate.passed) return entryOf(d, milestone.id) // gaps = ∅ -> achieved
+    events.emit({ type: "attempt:result", ts: Date.now(), id: milestone.id, attempt, gate, feedback: feedback?.text })
+    if (gate.passed) {
+      events.emit({ type: "milestone:end", ts: Date.now(), id: milestone.id, status: "passed" })
+      return entryOf(d, milestone.id) // gaps = ∅ -> achieved
+    }
     feedback = d.judge.compose(milestone, gate.failures) // FEEDBACK
     if (d.ledger.noProgress(milestone.id)) break // same gaps twice -> stop early
   }
   d.ledger.escalate(milestone.id)
+  events.emit({ type: "milestone:end", ts: Date.now(), id: milestone.id, status: "escalated" })
   return entryOf(d, milestone.id)
 }
 
 /** Sequence milestones; never start a milestone until its deps have passed.
  *  Stops at the first unmet dependency or escalation. */
 export async function runAll(milestones: Milestone[], d: OrchestratorDeps): Promise<LedgerState> {
+  const events = d.events ?? noopSink
+  events.emit({ type: "run:start", ts: Date.now(), milestones: milestones.map((m) => ({ id: m.id, title: m.title })) })
   for (const m of milestones) {
     if (d.ledger.status(m.id) === "passed") continue // resume: skip done
     // Enforce deps at runtime rather than trusting array order: a milestone
@@ -49,6 +65,7 @@ export async function runAll(milestones: Milestone[], d: OrchestratorDeps): Prom
     const e = await runMilestone(m, d)
     if (e.status !== "passed") break // gate not met -> halt the workflow
   }
+  events.emit({ type: "run:end", ts: Date.now() })
   return d.ledger.snapshot()
 }
 

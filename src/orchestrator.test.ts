@@ -8,6 +8,7 @@ import { FakeGate, type Gate } from "./gate.ts"
 import { FakeAgent } from "./agent.ts"
 import { TemplateJudge } from "./judge.ts"
 import { Ledger } from "./ledger.ts"
+import type { EventSink, VeriPilotEvent } from "./events.ts"
 import type { Milestone } from "./types.ts"
 
 const m = (id: string, deps: string[] = []): Milestone => ({
@@ -83,4 +84,20 @@ test("runAll enforces deps: a milestone whose dep has not passed does not run", 
   const state = await runAll([m("M2", ["M1"]), m("M1")], deps({ agent, gate: new FakeGate([{ "M1.a": "pass" }]) }))
   assert.equal(state.milestones["M2"], undefined) // refused: dep M1 not passed
   assert.equal(agent.prompts.length, 0) // nothing dispatched
+})
+
+test("emits the run/milestone/attempt lifecycle for a fail-then-pass milestone", async () => {
+  const seen: VeriPilotEvent[] = []
+  const events: EventSink = { emit: (e) => seen.push(e) }
+  await runAll([m("M1")], deps({ gate: new FakeGate([{ "M1.a": "fail" }, { "M1.a": "pass" }]), events }))
+  assert.deepEqual(
+    seen.map((e) => e.type),
+    ["run:start", "milestone:start", "attempt:start", "attempt:result", "attempt:start", "attempt:result", "milestone:end", "run:end"],
+  )
+  assert.ok(seen.some((e) => e.type === "milestone:end" && e.status === "passed"))
+})
+
+test("omitting events still works (no-op default sink)", async () => {
+  const e = await runMilestone(m("M1"), deps({ gate: new FakeGate([{ "M1.a": "pass" }]) }))
+  assert.equal(e.status, "passed")
 })
