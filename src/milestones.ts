@@ -1,14 +1,16 @@
 import { readFileSync } from "node:fs"
-import path from "node:path"
-import { fileURLToPath } from "node:url"
 import type { Milestone } from "./types.ts"
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const DEFAULT = path.resolve(HERE, "..", "milestones.json")
-
-/** Load + validate the milestone plan. Pass `data` to validate an in-memory plan. */
-export function loadMilestones(data?: { milestones: Milestone[] }): Milestone[] {
-  const parsed = data ?? (JSON.parse(readFileSync(DEFAULT, "utf8")) as { milestones: Milestone[] })
+/**
+ * Load + validate a milestone plan. VeriPilot is a generic tool: the milestones
+ * are *project input*, not bundled in the tool. Pass the project's own plan as
+ * either a JSON file path (the normal case) or an in-memory object (tests).
+ */
+export function loadMilestones(source: string | { milestones: Milestone[] }): Milestone[] {
+  const parsed: { milestones: Milestone[] } =
+    typeof source === "string"
+      ? (JSON.parse(readFileSync(source, "utf8")) as { milestones: Milestone[] })
+      : source
   const ms = parsed.milestones
   const ids = new Set(ms.map((m) => m.id))
   for (const m of ms) {
