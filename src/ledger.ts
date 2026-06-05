@@ -42,6 +42,11 @@ export class Ledger {
     return key(a[a.length - 1]!.gate) === key(a[a.length - 2]!.gate)
   }
 
+  /** Snapshot of the full state (read-only use). */
+  snapshot(): LedgerState {
+    return this.state
+  }
+
   private flush(): void {
     mkdirSync(path.dirname(this.file), { recursive: true })
     writeFileSync(this.file, JSON.stringify(this.state, null, 2) + "\n")
