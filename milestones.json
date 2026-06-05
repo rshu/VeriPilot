@@ -1,0 +1,40 @@
+{
+  "milestones": [
+    { "id": "M0", "title": "Foundation", "requirement": "Fork the MultiShopping sample into a flower-shop app: re-skin to flower products, keep the adaptive Home/List/Detail/Mine pages navigable, and make it build and launch on the emulator.", "slices": ["S0"], "deps": [],
+      "acceptance": [ { "id": "9.0.1", "text": "app builds and launches on the emulator; base pages navigable", "tier": "A" } ] },
+    { "id": "M1", "title": "Browse", "requirement": "On the home page show a scrollable list of flower products (image, name, price) with placeholder images; support pull-to-refresh with a loading indicator that falls back to local cached data on network failure; show a recently-viewed history of the last 10 products that survives an app restart.", "slices": ["S1"], "deps": ["M0"],
+      "acceptance": [
+        { "id": "9.1.1", "text": "product list displays", "tier": "B" },
+        { "id": "9.1.2", "text": "pull-refresh works with loading indicator", "tier": "C" },
+        { "id": "9.1.3", "text": "network failure shows local cached data", "tier": "B" },
+        { "id": "9.1.4", "text": "image placeholder shows while loading", "tier": "C" },
+        { "id": "9.1.5", "text": "browse-history area shows recently viewed products", "tier": "B" } ] },
+    { "id": "M2", "title": "Detail+services", "requirement": "Build the product detail page (image, price, description); a favorite toggle that persists across app restart; a Buy button that sends a system order-confirmation notification; and clickable service entries for delivery-calendar, share, add-recipient, and photo-pick review.", "slices": ["S1", "S2", "S7", "S8", "S9", "S12"], "deps": ["M1"],
+      "acceptance": [
+        { "id": "9.2.1", "text": "image, price, description display", "tier": "B" },
+        { "id": "9.2.2", "text": "favorite toggles and persists across restart", "tier": "B" },
+        { "id": "9.2.3", "text": "Buy sends a system notification", "tier": "C" },
+        { "id": "9.2.4", "text": "calendar/share/recipient/photo entries are clickable", "tier": "B" } ] },
+    { "id": "M3", "title": "Scan+voice", "requirement": "Add a scan-to-buy entry that opens the camera, scans a product QR code, and navigates to its detail page; and a voice-search entry that records a spoken product name and searches for it.", "slices": ["S3", "S4"], "deps": ["M0"],
+      "acceptance": [
+        { "id": "9.3.1", "text": "scan entry opens the camera", "tier": "graceful" },
+        { "id": "9.3.2", "text": "scanning a product QR navigates to its detail page", "tier": "graceful" },
+        { "id": "9.3.3", "text": "voice entry records a name and searches", "tier": "graceful" } ] },
+    { "id": "M4", "title": "Location+map", "requirement": "Add a locate button that requests location permission on first use and shows the current coordinates; and a map entry that opens a store-map page showing nearby store markers.", "slices": ["S5", "S6"], "deps": ["M0"],
+      "acceptance": [
+        { "id": "9.4.1", "text": "locate shows a permission prompt on first use", "tier": "C" },
+        { "id": "9.4.2", "text": "after grant, current coordinates display", "tier": "B" },
+        { "id": "9.4.3", "text": "map entry opens the store-map page with markers", "tier": "graceful" } ] },
+    { "id": "M5", "title": "Pay-security", "requirement": "Build a pay-security page where the user can set a 6-digit payment password (encrypted at rest), which stays valid after an app restart, and can be cleared; plus a biometric authentication entry.", "slices": ["S10"], "deps": ["M0"],
+      "acceptance": [
+        { "id": "9.5.1", "text": "can set a 6-digit payment password", "tier": "B" },
+        { "id": "9.5.2", "text": "password stays valid after app restart", "tier": "B" },
+        { "id": "9.5.3", "text": "can clear the password", "tier": "B" },
+        { "id": "9.5.4", "text": "biometric authentication can be initiated (device only)", "tier": "graceful" } ] },
+    { "id": "M6", "title": "Account+services", "requirement": "On the Mine page show a Huawei-account login entry that opens the authorization page when tapped; and make the share, add-to-contacts, and bluetooth smart-vase status features work.", "slices": ["S11", "S8"], "deps": ["M2"],
+      "acceptance": [
+        { "id": "9.6.1", "text": "Mine page shows a Huawei login entry", "tier": "B" },
+        { "id": "9.6.2", "text": "tapping login opens the authorization page", "tier": "graceful" },
+        { "id": "9.6.3", "text": "share, contacts, and bluetooth status features work", "tier": "graceful" } ] }
+  ]
+}
