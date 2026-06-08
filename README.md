@@ -78,5 +78,8 @@ bun examples/dashboard-demo.ts # live dashboard demo (build dashboard/ first)
 
 Validated end-to-end on a live HarmonyOS emulator: the tiered gate (build +
 on-device hypium + screenshot) and the full gap-closing loop with a real
-headless Claude Code agent. A real LLM vision judge for Tier-C plugs into the
-`VisualJudge` interface; everything else is shipped.
+headless Claude Code agent. All interfaces are shipped, including a CLI-backed
+Tier-C vision judge (`claudeVisionJudge`, fails closed, model-configurable for
+cross-family grading). Remaining work is experiment execution — authoring the
+per-milestone §9 acceptance tests, a run harness that builds once and serializes
+the device steps, and the flower-shop build study itself.
